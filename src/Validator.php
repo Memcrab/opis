@@ -11,40 +11,42 @@ use \Opis\JsonSchema\Errors\ValidationError;
 class Validator extends OpisValidator
 {
     private static $instance;
+    private static string $validatorsFolderPath = './validators';
+    private static string $schemaUrl = 'https://validators';
 
     private function __construct()
     {
     }
-    private function __clone()
+    public function __clone()
     {
     }
     public function __wakeup()
     {
     }
 
-    public static function setSchemasFolderPath(string $path): void
+    public static function initiateValidationSchemas(string $path): void
     {
-        $this->validatorsFolderPath = $path;
+        self::$instance = new OpisValidator();
+
+        self::$validatorsFolderPath = $path;
+        $validatorsFiles = scandir(self::$validatorsFolderPath);
+
+        foreach ($validatorsFiles as $file) {
+            if (is_file(self::$validatorsFolderPath . '/' . $file)) {
+                self::$instance->loader()->resolver()->registerFile('https://validators/' . $file, self::$validatorsFolderPath . '/' . $file);
+            }
+        }
     }
 
     public static function obj()
     {
         if (!(self::$instance instanceof OpisValidator)) {
-            self::$instance = new self();
-
-            self::$instance->validatorsFolderPath = "./validation";
-            $validatorsFiles = scandir(self::$instance->validatorsFolderPath);
-
-            foreach ($validatorsFiles as $file) {
-                if (is_file(self::$instance->validatorsFolderPath . '/' . $file)) {
-                    self::$instance->resolver()->registerFile('https://validators/' . $file, self::$instance->validatorsFolderPath . '/' . $file);
-                }
-            }
+            throw new \Exception("Please initiate Validation schema first by calling `initiateValidationSchemas` method", 500);
         }
         return self::$instance;
     }
 
-    private function customFormat(ValidationError $error): array
+    private static function customFormat(ValidationError $error): array
     {
         $formatter = new ErrorFormatter;
         return [
@@ -53,22 +55,22 @@ class Validator extends OpisValidator
         ];
     }
 
-    private function customFormatKey(): string
+    private static function customFormatKey(): string
     {
         return 'errors';
     }
 
-    public function validateIncomeData(\stdClass $data,  string $jsonFileName = ''): array
+    public static function validateIncomeData(\stdClass $data,  string $jsonFileName = ''): array
     {
-        $result = $this->validate($data, 'https://validators/' . $jsonFileName);
+        $result = self::$instance->validate($data, self::$schemaUrl . '/' . $jsonFileName);
         if ($result->hasError()) {
             $formatter = new ErrorFormatter;
             $error = $result->error();
-            $ErroResult = $formatter->format($error, false, $this->customFormat(...), $this->customFormatKey(...));
+            $ErroResult = $formatter->format($error, false, self::customFormat(...), self::customFormatKey(...));
         }
         return [
             'status' => $result->isValid(),
-            'data' => isset($ErroResult['errors']['formattedMessage']) ? $ErroResult['errors']['formattedMessage'] : '',
+            'data' => isset($ErroResult['errors']['formattedMessage']) ? $ErroResult['errors']['formattedMessage'] : null,
             'code' => (isset($ErroResult['errors']['contents']->apiCode)) ? (int)$ErroResult['errors']['contents']->apiCode : 400
         ];
     }
