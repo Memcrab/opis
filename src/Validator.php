@@ -50,8 +50,8 @@ class Validator extends OpisValidator
     {
         $formatter = new ErrorFormatter;
         return [
-            'formattedMessage' => $formatter->formatErrorMessage($error),
-            'contents' => $error->schema()->info()->data(),
+            'formattedMessage' => "Validation error on `" . $error->data()->fullPath()[0] . "`. " . $formatter->formatErrorMessage($error) . ". But `" . $error->data()->value() . "` given.",
+            'properties' => $error->schema()->info()->data(),
         ];
     }
 
@@ -60,18 +60,17 @@ class Validator extends OpisValidator
         return 'errors';
     }
 
-    public static function validateIncomeData(\stdClass $data,  string $jsonFileName = ''): array
+    public static function validateIncomeData(\stdClass $data,  string $jsonFileName = ''): void
     {
         $result = self::$instance->validate($data, self::$schemaUrl . '/' . $jsonFileName);
         if ($result->hasError()) {
             $formatter = new ErrorFormatter;
             $error = $result->error();
             $ErroResult = $formatter->format($error, false, self::customFormat(...), self::customFormatKey(...));
+            if (!isset($ErroResult['errors']['properties']->errorCode)) {
+                throw new \Exception("Please provide `errorCode` property to each field of validation schema", 500);
+            }
+            throw new \Exception($ErroResult['errors']['formattedMessage'], (int)$ErroResult['errors']['properties']->errorCode);
         }
-        return [
-            'status' => $result->isValid(),
-            'data' => isset($ErroResult['errors']['formattedMessage']) ? $ErroResult['errors']['formattedMessage'] : null,
-            'code' => (isset($ErroResult['errors']['contents']->apiCode)) ? (int)$ErroResult['errors']['contents']->apiCode : 400
-        ];
     }
 }
