@@ -49,9 +49,14 @@ class Validator extends OpisValidator
     private static function customFormat(ValidationError $error): array
     {
         $formatter = new ErrorFormatter;
+        $formattedMessage = $formatter->formatErrorMessage($error);
+
+        if (isset($error->data()->fullPath()[0])) $formattedMessage = "Validation error on `" . $error->data()->fullPath()[0] . "`. " . $formattedMessage;
+        if (isset($error->data()->fullPath()[0])) $formattedMessage = $formattedMessage . ". But `" . $error->data()->value() . "` given." . "`. ";
+
         return [
-            'formattedMessage' => "Validation error on `" . $error->data()->fullPath()[0] . "`. " . $formatter->formatErrorMessage($error) . ". But `" . $error->data()->value() . "` given.",
             'properties' => $error->schema()->info()->data(),
+            'formattedMessage' => $formattedMessage,
         ];
     }
 
