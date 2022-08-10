@@ -11,7 +11,8 @@ use \Opis\JsonSchema\Errors\ValidationError;
 class Validator extends OpisValidator
 {
     private static $instance;
-    private static string $validatorsFolderPath = './validators';
+    private static $files = [];
+    private static string $validatorsFolderPath = 'validators';
     private static string $schemaUrl = 'https://validators';
 
     private function __construct()
@@ -24,21 +25,39 @@ class Validator extends OpisValidator
     {
     }
 
-    public static function initiateValidationSchemas(string $path): void
+    public static function isValidatorExists(string $serviceActionFilePath): bool
+    {
+        return isset(self::$files[self::$validatorsFolderPath . '/' .  $serviceActionFilePath]);
+    }
+
+    public static function initiateValidationSchemas(string $rootPath): void
     {
         self::$instance = new OpisValidator();
 
-        self::$validatorsFolderPath = $path;
-        $validatorsFiles = scandir(self::$validatorsFolderPath);
+        self::$validatorsFolderPath = $rootPath;
+        self::scanValidatorsInFolder(self::$validatorsFolderPath);
+    }
+
+    private static function scanValidatorsInFolder(string $scanPath)
+    {
+        $validatorsFiles = scandir($scanPath);
 
         foreach ($validatorsFiles as $file) {
-            if (is_file(self::$validatorsFolderPath . '/' . $file)) {
-                self::$instance->loader()->resolver()->registerFile('https://validators/' . $file, self::$validatorsFolderPath . '/' . $file);
+            if (!in_array($file, [".", ".."])) {
+
+                $path = $scanPath . '/' . $file;
+
+                if (is_file($path)) {
+                    self::$instance->loader()->resolver()->registerFile(self::$schemaUrl . '/' . $path, $path);
+                    self::$files[$path] = self::$schemaUrl . '/' . $path;
+                } elseif (is_dir($path)) {
+                    self::scanValidatorsInFolder($path);
+                }
             }
         }
     }
 
-    public static function obj()
+    public static function obj(): self
     {
         if (!(self::$instance instanceof OpisValidator)) {
             throw new \Exception("Please initiate Validation schema first by calling `initiateValidationSchemas` method", 500);
@@ -67,7 +86,7 @@ class Validator extends OpisValidator
 
     public static function validateIncomeData(\stdClass $data,  string $jsonFileName = ''): void
     {
-        $result = self::$instance->validate($data, self::$schemaUrl . '/' . $jsonFileName);
+        $result = self::$instance->validate($data, self::$schemaUrl . '/' . self::$validatorsFolderPath . '/' . $jsonFileName);
         if ($result->hasError()) {
             $formatter = new ErrorFormatter;
             $error = $result->error();
