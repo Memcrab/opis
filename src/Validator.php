@@ -71,7 +71,7 @@ class Validator extends OpisValidator
         $formattedMessage = $formatter->formatErrorMessage($error);
 
         if (isset($error->data()->fullPath()[0])) $formattedMessage = "Validation error on `" . $error->data()->fullPath()[0] . "`. " . $formattedMessage;
-        if (isset($error->data()->fullPath()[0])) $formattedMessage = $formattedMessage . ". But `" . $error->data()->value() . "` given." . "`. ";
+        if (isset($error->data()->fullPath()[0]) && !is_object($error->data()->value())) $formattedMessage = $formattedMessage . ". But `" . $error->data()->value() . "` given." . "`. ";
 
         return [
             'properties' => $error->schema()->info()->data(),
